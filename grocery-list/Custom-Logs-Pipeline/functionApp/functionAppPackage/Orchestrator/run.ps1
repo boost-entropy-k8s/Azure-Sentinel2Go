@@ -14,15 +14,12 @@ if ($tableName -NotIn $builtInTables) {
 # Preparing execution
 $executorInput = @{
     EventLogUrl = $dataShippingRequest.eventLogUrl
-    DceUri = $dataShippingRequest.dceUri
+    DcrImmutableId = $dataShippingRequest.dcrImmutableId
     TableName = $tableName
-    StreamName = $dataShippingRequest.streamName
-} | ConvertTo-Json -Depth 10
+} | ConvertTo-Json
 
 Write-Host ($executorInput | Out-String)
 
 # Invoke activity function
-$output = Invoke-DurableActivity -FunctionName "DataShipper" -Input $executorInput | ConvertTo-Json -Depth 10
-
-# Export output
+$output = Invoke-DurableActivity -FunctionName "DataShipper" -Input $executorInput | ConvertTo-Json
 $output
