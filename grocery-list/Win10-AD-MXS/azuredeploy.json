@@ -263,7 +263,9 @@
             "ASimWindowsSysmon"
         ],
         "winSecurityEventsDCRName": "WinSecurityEventsDCR",
-        "winOtherEventsDCRName": "WinOtherEventsDCR"
+        "winOtherEventsDCRName": "WinOtherEventsDCR",
+        "winIISEventsDCRName": "WinIISEventsDCR",
+        "winIISEventsDCEName": "WinIISEventsDCE"
     },
     "resources": [
         {
@@ -410,26 +412,59 @@
             }
         },
         {
-            "name": "collectIISLogs",
-            "type": "Microsoft.Resources/deployments",
-            "apiVersion": "2020-10-01",
+            "type": "Microsoft.Insights/dataCollectionEndpoints",
+            "apiVersion": "2021-04-01",
+            "name": "[variables('winIISEventsDCEName')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "networkAcls": {
+                "publicNetworkAccess": "Enabled"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Insights/dataCollectionRules",
+            "apiVersion": "2021-09-01-preview",
+            "name": "[variables('winIISEventsDCRName')]",
             "dependsOn": [
                 "deployMSSentinel2Go"
             ],
+            "location": "[parameters('location')]",
             "properties": {
-                "mode": "Incremental",
-                "templateLink": {
-                    "uri": "[uri(variables('artifactsMicrosoftSentinel2Go'),'microsoft-sentinel/linkedtemplates/log-analytics/iisLogsDataSource.json')]",
-                    "contentVersion": "1.0.0.0"
+                "dataCollectionEndpointId": "[resourceId('microsoft.insights/dataCollectionEndpoints', variables('winIISEventsDCEName'))]",
+                "dataSources": {
+                    "iisLogs": [
+                        {
+                            "streams": [
+                                "Microsoft-W3CIISLog"
+                            ],
+                            "logDirectories": [
+                                "C:\\inetpub\\logs\\LogFiles\\W3SVC1\\"
+                            ],
+                            "name": "myIisLogsDataSource"
+                        }
+                    ]
                 },
-                "parameters": {
-                    "workspaceName": {
-                        "value": "[if(empty(parameters('workspaceId')), reference('deployMSSentinel2Go').outputs.workspaceName.value, parameters('workspaceName'))]"
-                    },
-                    "location": {
-                        "value": "[parameters('location')]"
+                "destinations": {
+                    "logAnalytics": [
+                        {
+                            "name": "WindowsIISEvents",
+                            "workspaceId": "[if(empty(parameters('workspaceId')), reference('deployMSSentinel2Go').outputs.workspaceIdOutput.value, parameters('workspaceId'))]",
+                            "workspaceResourceId": "[if(empty(parameters('workspaceId')), reference('deployMSSentinel2Go').outputs.workspaceResourceIdOutput.value, parameters('workspaceId'))]"
+                        }
+                    ]
+                },
+                "dataFlows": [
+                    {
+                        "streams": [
+                            "Microsoft-W3CIISLog"
+                        ],
+                        "destinations": [
+                            "WindowsIISEvents"
+                        ],
+                        "transformKql": "source"
                     }
-                }
+                ]
             }
         },
         {
@@ -576,6 +611,33 @@
             }
         },
         {
+            "name": "associateWinIISEventsDCR",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2020-10-01",
+            "dependsOn": [
+                "[resourceId('microsoft.insights/dataCollectionRules', variables('winIISEventsDCRName'))]",
+                "installAzureMonitorAgent"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[uri(variables('artifactsMicrosoftSentinel2Go'), 'microsoft-sentinel/linkedtemplates/data-collection-rules/association.json')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "virtualMachines": {
+                        "value": "[reference('deployWinADMXS').outputs.mxServerDeployed.value]"
+                    },
+                    "dataCollectionRuleId": {
+                        "value": "[resourceId('microsoft.insights/dataCollectionRules', variables('winIISEventsDCRName'))]"
+                    },
+                    "dataCollectionRuleName": {
+                        "value": "[variables('winIISEventsDCRName')]"
+                    }
+                }
+            }
+        },
+        {
             "condition": "[not(equals(parameters('c2Framework'), 'None'))]",
             "name": "deployC2",
             "type": "Microsoft.Resources/deployments",
@@ -624,7 +686,7 @@
             "apiVersion": "2020-10-01",
             "dependsOn": [
                 "deployC2",
-                "deployWinADFS"
+                "deployWinADMXS"
             ],
             "properties": {
                 "mode": "Incremental",
@@ -640,10 +702,10 @@
                         "value": "[if(not(equals(parameters('c2Framework'), 'None')), reference('deployC2').outputs.virtualNetworkId.value, 'Resource not deployed')]"
                     },
                     "targetVnet": {
-                        "value": "[reference('deployWinADFS').outputs.virtualNetworkName.value]"
+                        "value": "[reference('deployWinADMXS').outputs.virtualNetworkName.value]"
                     },
                     "targetVnetId": {
-                        "value": "[reference('deployWinADFS').outputs.virtualNetworkId.value]"
+                        "value": "[reference('deployWinADMXS').outputs.virtualNetworkId.value]"
                     },
                     "location": {
                         "value": "[parameters('location')]"
