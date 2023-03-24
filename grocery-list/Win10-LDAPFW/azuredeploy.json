@@ -214,7 +214,7 @@
                 "description": "Do you want to configure your Log Analytics Workspace to collect Windows Event Logs from several pre-defined event providers?. Windows Security Auditing is not enabled through this option. It is enabled through the Data Connectors parameter."
             },
             "defaultValue": [
-                "RPCFW!*"
+                "LDAPFW!*"
             ]
         },
         "c2Framework": {
@@ -240,8 +240,7 @@
     "variables": {
         "artifactsBlacksmith": "https://raw.githubusercontent.com/OTRF/Blacksmith/master/",
         "artifactsMicrosoftSentinel2Go": "https://raw.githubusercontent.com/OTRF/Microsoft-Sentinel2Go/master/",
-        "installRPCFWScript": "[concat(variables('artifactsBlacksmith'), 'resources/scripts/powershell/endpoint-software/Install-RPCFW.ps1')]",
-        "rpcFWConfigUrl": "https://raw.githubusercontent.com/OTRF/Blacksmith/master/resources/configs/rpcfirewall/RpcFw.conf",
+        "installLDAPFWScript": "[concat(variables('artifactsBlacksmith'), 'resources/scripts/powershell/endpoint-software/Install-LDAPFW.ps1')]",
         "dataCollectionRuleName": "WinEventsDCR"
     },
     "resources": [
@@ -271,7 +270,7 @@
                     },
                     "enableLAFunctions": {
                         "value": [
-                            "WinRPCFWLogs"
+                            "WinLDAPFWLogs"
                         ]
                     }
                 }
@@ -374,7 +373,7 @@
             }
         },
         {
-            "name": "installRPCFW",
+            "name": "installLDAPFW",
             "type": "Microsoft.Resources/deployments",
             "apiVersion": "2020-10-01",
             "dependsOn": [
@@ -384,20 +383,20 @@
             "properties": {
                 "mode": "Incremental",
                 "templateLink": {
-                    "uri": "[uri(variables('artifactsMicrosoftSentinel2Go'), 'grocery-list/Win10-RPCFW/linkedtemplates/customScriptExtension.json')]",
+                    "uri": "[uri(variables('artifactsMicrosoftSentinel2Go'), 'grocery-list/Win10-LDAPFW/linkedtemplates/customScriptExtension.json')]",
                     "contentVersion": "1.0.0.0"
                 },
                 "parameters": {
                     "virtualMachines": {
-                        "value": "[reference('deployWinAD').outputs.allWinVMsDeployed.value]"
+                        "value": "[reference('deployWinAD').outputs.dcVMDeployed.value]"
                     },
                     "fileUris": {
                         "value": [
-                            "[variables('installRPCFWScript')]"
+                            "[variables('installLDAPFWScript')]"
                         ]
                     },
                     "commandToExecute": {
-                        "value": "[concat('powershell -ExecutionPolicy Unrestricted -File ./Install-RPCFW.ps1 -RPCFWConfigUrl ', variables('rpcFWConfigUrl'))]"
+                        "value": "'powershell -ExecutionPolicy Unrestricted -File ./Install-LDAPFW.ps1"
                     },
                     "location": {
                         "value": "[parameters('location')]"
@@ -421,7 +420,7 @@
                 },
                 "parameters": {
                     "virtualMachines": {
-                        "value": "[reference('deployWinAD').outputs.allWinVMsDeployed.value]"
+                        "value": "[reference('deployWinAD').outputs.dcVMDeployed.value]"
                     },
                     "monitorAgent": {
                         "value": "Azure Monitor Agent"
@@ -445,7 +444,7 @@
                 },
                 "parameters": {
                     "virtualMachines": {
-                        "value": "[reference('deployWinAD').outputs.allWinVMsDeployed.value]"
+                        "value": "[reference('deployWinAD').outputs.dcVMDeployed.value]"
                     },
                     "dataCollectionRuleId": {
                         "value": "[resourceId('microsoft.insights/dataCollectionRules', variables('dataCollectionRuleName'))]"
